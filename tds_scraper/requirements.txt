@@ -1,0 +1,10 @@
+selenium
+beautifulsoup4
+requests
+webdriver-manager
+pillow
+pytesseract
+rank_bm25
+numpy
+faiss-cpu
+
