@@ -119,46 +119,46 @@ def dedupe_and_merge(faiss_results, bm25_results, max_results=5):
     return merged[:max_results]
 
 
-def build_prompt(question, retrieved_chunks):
-    context_texts = []
-    for chunk in retrieved_chunks:
-        text = chunk.get("text", "").strip()
-        url = chunk.get("url", "").strip()
-        title = chunk.get("title", "").strip()
-        if text:
-            context_texts.append(f"[{title}]({url})\n{text}")
+import json
 
-    joined_context = "\n\n---\n\n".join(context_texts)
+def build_prompt(query_text, top_chunks):
+    # Use the top relevant chunk (you can change this logic to include multiple chunks if needed)
+    top_chunk = top_chunks[0]
 
+    # Prepare a sample link to guide the LLM
+    sample_link = {
+        "url": top_chunk.get("url", "https://tds.s-anand.net/"),  # Fallback if URL missing
+        "text": top_chunk.get("text", "")[:160]  # First 160 characters for context
+    }
+
+    # Prepare example response as JSON string
+    example_response = {
+        "answer": "your answer here",
+        "links": [sample_link]
+    }
+
+    # Now, format the actual prompt
     prompt = f"""
-You are an AI assistant that answers user questions based **only** on the provided context.
+You are a helpful educational assistant for data science learners. Your task is to answer the user’s query using only the provided context. Also provide related links.
 
-🔒 Rules:
-- ONLY use the chunks below for your answer. Do not guess or use external knowledge.
-- If the context doesn't answer the question, say so clearly in the `answer`.
-- If you refer to any chunk, include its `url` and a short relevant `text` from that chunk in the `links`.
+Rules:
+- Use only the provided context.
+- Do not invent facts or refer to external sources.
+- Format your response as a JSON object with:
+  - "answer": the answer to the question
+  - "links": a list of {{"url", "text"}} pairs from relevant context
+- DO NOT include chunk numbers in URLs (e.g., strip off any #chunk1).
 
-💡 Format:
-You must return a valid JSON object like this:
+User Query:
+{query_text}
 
-{{
-  "answer": "Your answer here.",
-"links": [
-  {
-    "url": top_chunk['url'],  # Use the URL from the best chunk
-    "text": top_chunk['text'][:160]  # Or use a summary/first sentence
-  }
-]
+Context Chunks:
+{json.dumps(top_chunks, indent=2)}
 
-}}
-
-🧠 Context:
-{joined_context}
-
-❓ Question:
-{question}
+Respond in the following JSON format:
+{json.dumps(example_response, indent=2)}
 """
-    return prompt
+    return prompt.strip()
 
 
 def call_openai_chat_completion(prompt):
